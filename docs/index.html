@@ -208,10 +208,10 @@
         <p class="lead">휴대폰 센서로 넘어짐과 큰 충격을 감지하는 안드로이드 앱이에요. 먼저 괜찮은지 묻고, 응답이 없으면 보호자에게 지금 있는 곳을 문자로 보내요.</p>
 
         <div class="for-android">
-          <a class="btn btn-primary js-download" id="download" href="https://github.com/EunYool10/KTAIContest-Submission/releases/download/v2.1.0/ai-shock-alert.apk">
+          <a class="btn btn-primary js-download" id="download" href="https://github.com/EunYool10/KTAIContest-Submission/releases/download/v2.2.0/ai-shock-alert.apk">
             <svg class="i" aria-hidden="true"><use href="#i-down"/></svg>설치 파일 내려받기
           </a>
-          <p class="meta">버전 2.1.0 · 12MB · 안드로이드 7.0 이상 · 무료</p>
+          <p class="meta">버전 2.2.0 · 11.7MB · 안드로이드 7.0 이상 · 무료</p>
           <div class="after box" id="after" role="status">
             <strong>내려받기를 시작했어요</strong>
             <ol>
@@ -231,7 +231,7 @@
             </div>
           </div>
           <div class="links">
-            <a class="js-download" href="https://github.com/EunYool10/KTAIContest-Submission/releases/download/v2.1.0/ai-shock-alert.apk">PC에서 설치 파일 받기 (2.1.0 · 12MB)</a>
+            <a class="js-download" href="https://github.com/EunYool10/KTAIContest-Submission/releases/download/v2.2.0/ai-shock-alert.apk">PC에서 설치 파일 받기 (2.2.0 · 11.7MB)</a>
             <button class="btn btn-line js-copy" type="button"><svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>링크 복사</button>
           </div>
         </div>
@@ -313,6 +313,7 @@
         <h3>설치한 뒤 꼭 해 주세요</h3>
         <ul>
           <li>홈 화면의 '준비 상태'에서 빠진 항목을 켜 주세요. 특히 <b>배터리 최적화 제외</b>를 켜야 절전 중에도 감지가 멈추지 않아요.</li>
+          <li>안드로이드 15 이상이면 문자 권한이 막혀 있을 수 있어요. 앱이 알려 주는 대로 '제한된 설정 허용'을 켠 뒤 문자 권한을 허용해 주세요.</li>
           <li>'경보 테스트'로 한 번 연습해 보세요. 테스트에서는 문자를 보내지 않아요.</li>
           <li>보호자에게 이 앱을 쓴다고 미리 알려 주세요. 긴급 문자를 받고 놀라지 않도록요.</li>
         </ul>
@@ -324,17 +325,16 @@
     <div class="wrap">
       <div class="sec-head">
         <h2 id="perm-title">권한</h2>
-        <p>앱을 처음 열면 하나씩 물어봐요. 허용하지 않은 항목은 나중에 홈 화면 '준비 상태'에서 다시 켤 수 있어요.</p>
+        <p>앱을 처음 열면 하나씩 물어봐요. 허용하지 않은 항목은 나중에 홈 화면 '준비 상태'에서 다시 켤 수 있어요. 인터넷 권한은 쓰지 않아요.</p>
       </div>
       <table class="perm">
         <thead><tr><th scope="col">권한</th><th scope="col">필요</th><th scope="col">쓰는 곳</th></tr></thead>
         <tbody>
           <tr><th scope="row">위치</th><td><span class="need req">필요</span></td><td>도움 요청 문자에 넣을 위치를 감지 중에 가볍게 확인해요. 문자 말고는 어디에도 보내지 않아요.</td></tr>
-          <tr><th scope="row">문자</th><td><span class="need req">필요</span></td><td>응답이 없을 때 보호자에게 문자를 보내요. 다른 문자는 읽지 않아요.</td></tr>
+          <tr><th scope="row">문자</th><td><span class="need req">필요</span></td><td>응답이 없을 때 보호자에게 문자를 보내요. 다른 문자는 읽지 않아요. 안드로이드 15 이상에서는 '제한된 설정 허용'을 먼저 켜야 해요.</td></tr>
           <tr><th scope="row">알림</th><td><span class="need req">필요</span></td><td>화면이 꺼져 있어도 경보와 감지 상태를 보여 줘요.</td></tr>
           <tr><th scope="row">배터리 최적화 제외</th><td><span class="need req">권장</span></td><td>절전 모드에서도 감지가 멈추지 않게 해요.</td></tr>
           <tr><th scope="row">마이크</th><td><span class="need opt">선택</span></td><td>경보 중에만 "괜찮아"를 들어요. 녹음하거나 저장하지 않아요.</td></tr>
-          <tr><th scope="row">인터넷</th><td><span class="need opt">선택</span></td><td>AI 판단을 켰을 때 센서 수치만 보내요. 없어도 감지는 그대로 돼요.</td></tr>
         </tbody>
       </table>
     </div>
@@ -354,7 +354,7 @@
         </details>
         <details>
           <summary>넘어진 건지 어떻게 판단하나요?</summary>
-          <p>센서로 잰 떨어지는 움직임, 충격 크기, 충격 뒤 자세와 움직임을 보고 판단해요. 앱의 설정 → 판단 방식에서 Gemini API 키를 넣으면 AI가 이 수치를 함께 보고 판단해요. 인터넷이 안 되거나 9초 안에 답이 없으면 기기 안 규칙으로 바로 판단해요.</p>
+          <p>센서로 잰 떨어지는 움직임, 충격 크기, 충격 뒤 자세와 움직임을 보고 휴대폰 안에서 바로 판단해요. 인터넷이 없어도 동작하고, 센서 값은 휴대폰 밖으로 보내지 않아요. 애매하면 문자를 보내기 전에 항상 먼저 물어봐요.</p>
         </details>
         <details>
           <summary>문자 요금이 나오나요?</summary>
@@ -366,7 +366,11 @@
         </details>
         <details>
           <summary>내 정보는 어디에 저장되나요?</summary>
-          <p>이름, 연락처, 기록은 휴대폰 안에만 저장돼요. 위치는 도움 요청 문자에만 들어가요. AI 판단을 켜면 센서 수치만 Google Gemini로 보내고, 이름이나 위치는 보내지 않아요. 직접 넣은 API 키는 휴대폰에만 저장되고 백업되지 않아요.</p>
+          <p>이름, 연락처, 기록은 휴대폰 안에만 저장되고 인터넷으로 보내지 않아요. 위치는 도움 요청 문자에만 들어가요.</p>
+        </details>
+        <details>
+          <summary>문자 권한이 '제한된 설정'이라며 켜지지 않아요.</summary>
+          <p>안드로이드 15부터는 설치 파일로 설치한 앱의 문자 권한이 처음에 막혀 있어요. 설정 → 애플리케이션 → AI 충격 감지 경보 → 오른쪽 위 ⋮(더보기) → '제한된 설정 허용'을 누른 뒤, '권한' → 'SMS'에서 허용해 주세요. 권한이 없을 때 도움을 요청하면 문자 앱이 받는 사람과 내용을 채워 열리니 '보내기'만 누르면 돼요.</p>
         </details>
         <details>
           <summary>"앱이 설치되지 않았습니다"라고 나와요.</summary>
@@ -389,15 +393,17 @@
       <div class="sec-head"><h2 id="version-title">버전 정보</h2></div>
       <table class="kv">
         <tbody>
-          <tr><th scope="row">버전</th><td>2.1.0</td></tr>
+          <tr><th scope="row">버전</th><td>2.2.0</td></tr>
           <tr><th scope="row">날짜</th><td>2026년 11월 8일</td></tr>
-          <tr><th scope="row">크기</th><td>12MB · 안드로이드 7.0 이상</td></tr>
-          <tr><th scope="row">SHA-256</th><td><code>1be3b4602d093b5680f3f7b265d1b7e1d0ce8322afc9f8940d8d7b2d1377a6bc</code></td></tr>
+          <tr><th scope="row">크기</th><td>11.7MB · 안드로이드 7.0 이상</td></tr>
+          <tr><th scope="row">SHA-256</th><td><code>e96aee1be22f0341505bdfa0cb31731d3e2ab09a3669d3cc13e11657966c9707</code></td></tr>
         </tbody>
       </table>
       <ul class="changes">
-        <li>화면을 새로 정리했어요. 감지는 스위치로 켜고 끄고, 설정과 기록은 목록으로 읽기 쉽게 바꿨어요.</li>
-        <li>경보 화면을 단순하게 바꿨어요. 남은 시간을 크게 보여 주고 '괜찮아요' 버튼을 더 크게 했어요.</li>
+        <li>모든 판단을 휴대폰 안에서 해요. AI 연결(Gemini) 기능을 없애고 인터넷 권한도 쓰지 않아요.</li>
+        <li>안드로이드 15 이상에서 문자 권한이 막혀 있으면 켜는 방법을 앱이 바로 알려 줘요.</li>
+        <li>자동 문자를 못 보냈을 때 '문자 앱으로 보내기'가 삼성 메시지에서도 받는 사람을 제대로 채워요.</li>
+        <li>유심이 두 개인 휴대폰은 문자 기본 유심으로 보내요.</li>
       </ul>
       <p class="links"><a href="https://github.com/EunYool10/KTAIContest-Submission/releases">이전 버전 보기</a><a href="https://github.com/EunYool10/KTAIContest-Submission">소스 코드</a></p>
     </div>
@@ -412,8 +418,8 @@
 </footer>
 
 <div class="dock" id="dock" aria-hidden="true">
-  <span><b>AI 충격 감지 경보</b>2.1.0 · 12MB</span>
-  <a class="btn btn-primary js-download" href="https://github.com/EunYool10/KTAIContest-Submission/releases/download/v2.1.0/ai-shock-alert.apk" tabindex="-1">
+  <span><b>AI 충격 감지 경보</b>2.2.0 · 11.7MB</span>
+  <a class="btn btn-primary js-download" href="https://github.com/EunYool10/KTAIContest-Submission/releases/download/v2.2.0/ai-shock-alert.apk" tabindex="-1">
     <svg class="i" aria-hidden="true"><use href="#i-down"/></svg>내려받기
   </a>
 </div>
