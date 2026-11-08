@@ -99,8 +99,15 @@ class GuardEngine(
   val location = LocationTracker(context, scope)
   private val alarm = Alarm(context)
   private val sms = SmsSender(context)
-  val gemini = GeminiAnalyzer(BuildConfig.GEMINI_API_KEY.trim(), BuildConfig.GEMINI_MODEL.trim().ifBlank { "gemini-3.5-flash" })
   val modelName: String = BuildConfig.GEMINI_MODEL.trim().ifBlank { "gemini-3.5-flash" }
+  private val certSha1: String? by lazy { signingSha1(context) }
+  /** 설치 파일에 들어 있는 키 (.env 로 빌드한 경우). 앱에서 입력한 키가 있으면 그쪽이 우선입니다. */
+  val builtInKey: String = BuildConfig.GEMINI_API_KEY.trim()
+  val gemini = GeminiAnalyzer(
+    keyProvider = { settings.value.geminiKey.ifBlank { builtInKey } },
+    model = modelName,
+    packageName = context.packageName,
+  ) { certSha1 }
 
   private val lock = Any()
   private val detector = FallDetector(settings.value.let { min(it.warningThreshold, it.emergencyThreshold) })
@@ -474,6 +481,23 @@ class GuardEngine(
   fun clearLogs() = scope.launch(Dispatchers.IO) { dao.clearAllLogs() }
 
   companion object {
+    /** 앱 서명 인증서의 SHA-1 (대문자 16진수, 구분자 없음). API 키를 이 앱으로 제한할 때 씁니다. */
+    fun signingSha1(context: Context): String? = try {
+      val pm = context.packageManager
+      val signatures = if (android.os.Build.VERSION.SDK_INT >= 28) {
+        pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+          .signingInfo?.apkContentsSigners
+      } else {
+        @Suppress("DEPRECATION")
+        pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES).signatures
+      }
+      signatures?.firstOrNull()?.toByteArray()?.let { bytes ->
+        java.security.MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02X".format(it) }
+      }
+    } catch (_: Exception) {
+      null
+    }
+
     const val MONITOR = "monitor"
     const val HISTORY_POINTS = 100
     fun gText(accel: Float) = String.format(java.util.Locale.US, "%.1fG", accel / GRAVITY)

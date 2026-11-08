@@ -75,8 +75,11 @@ fun buildChecks(context: Context, settings: Settings, hasAccelerometer: Boolean,
       batteryOk, false, "설정"),
     Check(CheckId.MIC, "음성으로 취소", "경보 중 '괜찮아'라고 말하면 취소돼요.", "마이크를 허용하면 말로 경보를 끌 수 있어요.",
       !settings.voiceCancelEnabled || context.granted(Manifest.permission.RECORD_AUDIO), false, "허용"),
-    Check(CheckId.AI, "AI 판단", "Gemini($modelName)가 충격 데이터를 판단해요. 연결이 안 되면 기기 안 규칙으로 판단해요.",
-      "API 키가 없어 기기 안 규칙으로 판단해요. (.env 에 GEMINI_API_KEY 설정)", geminiConfigured, false),
+    // 사용자가 고칠 수 있는 항목이 아니라서 항상 '준비됨'으로 두고 설명만 바꿉니다.
+    Check(CheckId.AI, "판단 방식",
+      if (geminiConfigured) "AI(Gemini)가 충격 데이터를 판단해요. 연결이 안 되면 기기 안 규칙으로 판단해요."
+      else "기기 안 규칙으로 판단해요. 설정에서 Gemini API 키를 넣으면 AI가 함께 판단해요.",
+      "", true, false),
   )
 }
 

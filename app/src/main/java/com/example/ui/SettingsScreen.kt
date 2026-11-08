@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +23,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,15 +48,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.BuildConfig
 import com.example.data.CallTarget
@@ -60,6 +70,7 @@ import com.example.data.Settings
 import com.example.detect.GRAVITY
 import com.example.ui.theme.AppTheme
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -73,11 +84,15 @@ fun SettingsScreen(
   onThresholds: (Float, Float) -> Unit,
   onCalibrate: () -> Unit,
   onReset: () -> Unit,
+  hasBuiltInKey: Boolean = false,
+  onSaveKey: (String) -> Unit = {},
+  onCheckKey: suspend (String) -> Pair<Boolean, String> = { false to "" },
   modifier: Modifier = Modifier,
 ) {
   var contactDialog by rememberSaveable { mutableStateOf(false) }
   var targetDialog by rememberSaveable { mutableStateOf(false) }
   var resetDialog by rememberSaveable { mutableStateOf(false) }
+  var keyDialog by rememberSaveable { mutableStateOf(false) }
   var showDetail by rememberSaveable { mutableStateOf(settings.sensitivity == Sensitivity.CUSTOM) }
 
   LaunchedEffect(openContacts) {
@@ -163,12 +178,30 @@ fun SettingsScreen(
 
     item {
       Panel {
-        SectionHeader("AI 판단")
+        SectionHeader("판단 방식")
         Text(
-          if (geminiConfigured) "큰 충격이 오면 Gemini($modelName)가 센서 데이터를 보고 넘어진 건지 판단해요. 인터넷이 안 되거나 9초 안에 답이 없으면 기기 안 규칙으로 바로 판단해요."
-          else "API 키가 설정되지 않아 기기 안 규칙으로만 판단해요. 프로젝트의 .env 파일에 GEMINI_API_KEY 를 넣고 다시 빌드하면 AI 판단을 써요.",
+          if (geminiConfigured) "큰 충격이 오면 AI(Gemini $modelName)가 센서 데이터를 보고 넘어진 건지 판단해요. 인터넷이 안 되거나 9초 안에 답이 없으면 기기 안 규칙으로 바로 판단해요."
+          else "떨어지는 움직임, 충격 크기, 충격 뒤 자세와 움직임을 기기 안 규칙으로 판단해요. 인터넷이 없어도 동작해요. 아래에서 Gemini API 키를 넣으면 AI가 함께 판단해요.",
           style = MaterialTheme.typography.bodyMedium,
         )
+        Row(
+          Modifier.fillMaxWidth().clickable { keyDialog = true }.padding(vertical = 6.dp).testTag("ai_key_row"),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Column(Modifier.weight(1f)) {
+            Text("AI 연결 (Gemini API 키)", style = MaterialTheme.typography.titleSmall)
+            Text(
+              when {
+                settings.geminiKey.isNotBlank() -> "직접 넣은 키 사용 중 (…${settings.geminiKey.trim().takeLast(4)})"
+                hasBuiltInKey -> "설치 파일에 들어 있는 키 사용 중"
+                else -> "연결 안 함"
+              },
+              style = MaterialTheme.typography.bodySmall,
+              color = if (geminiConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+        }
         Text(
           "AI가 '정상'이라고 보면 경보 없이 안내만 해요. 애매하면 항상 사람에게 먼저 확인해요.",
           style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -197,6 +230,15 @@ fun SettingsScreen(
       onUpdate { it.copy(callTarget = t) }
       targetDialog = false
     }
+  }
+  if (keyDialog) {
+    ApiKeyDialog(
+      current = settings.geminiKey,
+      hasBuiltInKey = hasBuiltInKey,
+      onCheck = onCheckKey,
+      onSave = { onSaveKey(it); keyDialog = false },
+      onDismiss = { keyDialog = false },
+    )
   }
   if (resetDialog) {
     AlertDialog(
@@ -394,3 +436,81 @@ private fun segmentColors() = SegmentedButtonDefaults.colors(
   activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
   activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
 )
+
+/** Gemini API 키 입력. 키는 이 휴대폰에만 저장되고 백업되지 않습니다. */
+@Composable
+private fun ApiKeyDialog(
+  current: String,
+  hasBuiltInKey: Boolean,
+  onCheck: suspend (String) -> Pair<Boolean, String>,
+  onSave: (String) -> Unit,
+  onDismiss: () -> Unit,
+) {
+  var key by rememberSaveable { mutableStateOf(current) }
+  var visible by rememberSaveable { mutableStateOf(false) }
+  var checking by remember { mutableStateOf(false) }
+  var result by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+  val scope = rememberCoroutineScope()
+  val uri = LocalUriHandler.current
+  val scheme = MaterialTheme.colorScheme
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("AI 연결") },
+    text = {
+      Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+          "Gemini API 키를 넣으면 큰 충격이 왔을 때 AI가 센서 수치를 보고 함께 판단해요. 이름이나 위치는 보내지 않아요.",
+          style = MaterialTheme.typography.bodyMedium,
+        )
+        OutlinedTextField(
+          value = key,
+          onValueChange = { key = it.trim(); result = null },
+          label = { Text("Gemini API 키") },
+          singleLine = true,
+          visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+          trailingIcon = {
+            IconButton(onClick = { visible = !visible }) {
+              Icon(if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (visible) "키 숨기기" else "키 보기")
+            }
+          },
+          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+          modifier = Modifier.fillMaxWidth().testTag("ai_key_input"),
+        )
+        Text(
+          "키는 이 휴대폰에만 저장되고 백업되지 않아요." + if (hasBuiltInKey) " 비워 두면 설치 파일에 들어 있는 키를 써요." else "",
+          style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+        )
+        TextButton(onClick = { uri.openUri("https://aistudio.google.com/apikey") }, contentPadding = PaddingValues(0.dp)) {
+          Text("키 발급받기 (Google AI Studio)")
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          OutlinedButton(
+            enabled = key.isNotBlank() && !checking,
+            onClick = {
+              checking = true
+              result = null
+              scope.launch {
+                result = onCheck(key)
+                checking = false
+              }
+            },
+          ) { Text("연결 확인") }
+          if (checking) {
+            Spacer(Modifier.width(12.dp))
+            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+          }
+        }
+        result?.let { (ok, message) ->
+          Text(message, style = MaterialTheme.typography.bodyMedium, color = if (ok) scheme.primary else scheme.error)
+        }
+      }
+    },
+    confirmButton = { TextButton(onClick = { onSave(key) }) { Text("저장") } },
+    dismissButton = {
+      Row {
+        if (current.isNotBlank()) TextButton(onClick = { onSave("") }) { Text("지우기", color = scheme.error) }
+        TextButton(onClick = onDismiss) { Text("취소") }
+      }
+    },
+  )
+}

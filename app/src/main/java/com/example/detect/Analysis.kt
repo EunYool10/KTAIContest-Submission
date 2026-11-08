@@ -79,9 +79,50 @@ object LocalRules {
   }
 }
 
-/** Gemini 로 충격 데이터를 판단합니다. 실패하거나 시간이 넘으면 null 을 돌려줍니다. */
-class GeminiAnalyzer(private val apiKey: String, private val model: String) {
+/**
+ * Gemini 로 충격 데이터를 판단합니다. 실패하거나 시간이 넘으면 null 을 돌려줍니다.
+ *
+ * 배포용 APK 안의 API 키는 꺼낼 수 있으므로, Google Cloud 콘솔에서 키를
+ * "Android 앱" (패키지 이름 + 서명 SHA-1) 으로 제한해 두기를 권장합니다.
+ * 그 제한이 통하도록 요청마다 X-Android-Package / X-Android-Cert 헤더를 붙입니다.
+ */
+class GeminiAnalyzer(
+  /** 지금 쓸 키. 앱에서 입력한 키가 있으면 그것, 없으면 설치 파일에 들어 있는 키. */
+  private val keyProvider: () -> String,
+  private val model: String,
+  private val packageName: String = "",
+  private val certSha1: () -> String? = { null },
+) {
+  private val apiKey: String get() = keyProvider().trim()
   val isConfigured: Boolean get() = apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY"
+
+  /** 키가 실제로 동작하는지 확인합니다 (모델 정보만 조회해서 요금이 거의 들지 않아요). */
+  suspend fun check(key: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+    val k = key.trim()
+    if (k.isEmpty()) return@withContext false to "키를 입력해 주세요."
+    val req = Request.Builder()
+      .url("https://generativelanguage.googleapis.com/v1beta/models/$model")
+      .header("x-goog-api-key", k)
+      .apply {
+        if (packageName.isNotEmpty()) header("X-Android-Package", packageName)
+        certSha1()?.let { header("X-Android-Cert", it) }
+      }
+      .get()
+      .build()
+    try {
+      client.newCall(req).await().use { res ->
+        when (res.code) {
+          200 -> true to "연결됐어요. 큰 충격이 오면 AI가 함께 판단해요."
+          400, 401, 403 -> false to "키가 올바르지 않거나, 이 앱에서 쓸 수 없도록 제한된 키예요."
+          404 -> false to "키는 맞지만 모델($model)을 찾을 수 없어요."
+          429 -> false to "요청이 너무 많아요. 잠시 뒤 다시 확인해 주세요."
+          else -> false to "확인하지 못했어요. (응답 ${res.code})"
+        }
+      }
+    } catch (e: IOException) {
+      false to "인터넷 연결을 확인해 주세요."
+    }
+  }
 
   private val client = OkHttpClient.Builder()
     .connectTimeout(5, TimeUnit.SECONDS)
@@ -115,6 +156,10 @@ class GeminiAnalyzer(private val apiKey: String, private val model: String) {
     val req = Request.Builder()
       .url("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
       .header("x-goog-api-key", apiKey)
+      .apply {
+        if (packageName.isNotEmpty()) header("X-Android-Package", packageName)
+        certSha1()?.let { header("X-Android-Cert", it) }
+      }
       .post(body.toString().toRequestBody("application/json".toMediaType()))
       .build()
 

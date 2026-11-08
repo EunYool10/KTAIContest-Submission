@@ -73,7 +73,7 @@ class ScreenshotTest {
     Check(CheckId.CONTACT, "보호자 연락처", "김철수 · 010-1234-5678", "", true, true, "입력"),
     Check(CheckId.NOTIFY, "알림", "", "", true, true, "허용"),
     Check(CheckId.LOCATION, "위치", "도움 요청 문자에 현재 위치를 넣어요.", "", true, true, "허용"),
-    Check(CheckId.SMS, "문자 자동 전송", "", "권한이 없으면 문자를 자동으로 보내지 못해요.", false, true, "허용"),
+    Check(CheckId.SMS, "문자 자동 전송", "응답이 없으면 보호자에게 바로 문자를 보내요.", "", true, true, "허용"),
     Check(CheckId.BATTERY, "배터리 최적화 제외", "", "절전 모드에서 감지가 멈출 수 있어요.", false, false, "설정"),
     Check(CheckId.AI, "AI 판단", "Gemini가 판단해요.", "", true, false),
   )
@@ -136,7 +136,7 @@ class ScreenshotTest {
 
   @Test fun history() = shot("history") { HistoryScreen(logs, {}, {}) }
   @Test fun settings() = shot("settings") {
-    SettingsScreen(settings, true, "gemini-3.5-flash", false, {}, {}, {}, { _, _ -> }, {}, {})
+    SettingsScreen(settings.copy(geminiKey = "AIzaSy-example-key-7f3a"), true, "gemini-3.5-flash", false, {}, {}, {}, { _, _ -> }, {}, {})
   }
   @Test fun calibration_result() = shot("calibration_result") {
     CalibrationScreen(Calibration(CalStep.RESULT, 0, 15.2f, 44f), live, settings, {}, {}, {})

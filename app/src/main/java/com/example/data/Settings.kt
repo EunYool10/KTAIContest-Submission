@@ -46,7 +46,11 @@ data class Settings(
   val voiceCancelEnabled: Boolean = true,
   /** 사용자가 감지를 켜 둔 상태인지. 재부팅 뒤 자동으로 다시 켤 때 씁니다. */
   val monitoringEnabled: Boolean = false,
+  /** 앱에서 직접 입력한 Gemini API 키. 비어 있으면 설치 파일에 들어 있는 키(있다면)를 씁니다. */
+  val geminiKey: String = "",
 ) {
+  override fun toString(): String = "Settings(setup=$setupComplete, monitoring=$monitoringEnabled, key=${if (geminiKey.isBlank()) "없음" else "있음"})"
+
   /** 자동 문자를 받을 번호 목록 (보호자 + 추가 연락처). */
   val smsRecipients: List<Pair<String, String>>
     get() = buildList {
@@ -106,6 +110,8 @@ object Phone {
 /** SharedPreferences 에 저장하고 StateFlow 로 바로 알려 주는 설정 저장소. 키는 이전 버전과 호환됩니다. */
 class SettingsStore(context: Context) {
   private val prefs = context.getSharedPreferences("app_settings_pref", Context.MODE_PRIVATE)
+  /** API 키 전용 파일. 백업에서 빠지도록 backup_rules / data_extraction_rules 에 적어 두었습니다. */
+  private val secrets = context.getSharedPreferences("secret_pref", Context.MODE_PRIVATE)
   private val _state = MutableStateFlow(load())
   val state: StateFlow<Settings> = _state.asStateFlow()
   val value: Settings get() = _state.value
@@ -118,10 +124,11 @@ class SettingsStore(context: Context) {
     }
   }
 
+  /** 처음부터 다시 설정: 연락처·설정을 지웁니다. 직접 넣은 API 키는 남겨 둡니다. */
   fun reset() {
     synchronized(this) {
       prefs.edit().clear().apply()
-      _state.value = Settings()
+      _state.value = Settings(geminiKey = _state.value.geminiKey)
     }
   }
 
@@ -152,6 +159,7 @@ class SettingsStore(context: Context) {
       vibrationEnabled = prefs.getBoolean(K_VIBRATION, true),
       voiceCancelEnabled = prefs.getBoolean(K_VOICE, true),
       monitoringEnabled = prefs.getBoolean(K_MONITORING, prefs.getBoolean(K_SETUP, false)),
+      geminiKey = secrets.getString(K_GEMINI_KEY, "") ?: "",
     )
   }
 
@@ -172,6 +180,9 @@ class SettingsStore(context: Context) {
       .putBoolean(K_VOICE, s.voiceCancelEnabled)
       .putBoolean(K_MONITORING, s.monitoringEnabled)
       .apply()
+    if (secrets.getString(K_GEMINI_KEY, "") != s.geminiKey) {
+      secrets.edit().putString(K_GEMINI_KEY, s.geminiKey).apply()
+    }
   }
 
   private companion object {
@@ -189,5 +200,6 @@ class SettingsStore(context: Context) {
     const val K_VIBRATION = "vibration_enabled"
     const val K_VOICE = "voice_cancel_enabled"
     const val K_MONITORING = "monitoring_enabled"
+    const val K_GEMINI_KEY = "gemini_api_key"
   }
 }

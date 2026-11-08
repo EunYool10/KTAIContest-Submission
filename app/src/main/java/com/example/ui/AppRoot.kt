@@ -147,6 +147,7 @@ private fun MainTabs(vm: AppViewModel, settings: Settings) {
           openContacts = openContacts, onContactsShown = { openContacts = false },
           onUpdate = vm::update, onSensitivity = vm::setSensitivity, onThresholds = vm::setThresholds,
           onCalibrate = vm::startCalibration, onReset = vm::resetAll,
+          hasBuiltInKey = vm.hasBuiltInKey, onSaveKey = vm::saveGeminiKey, onCheckKey = vm::checkGeminiKey,
         )
       }
     }
