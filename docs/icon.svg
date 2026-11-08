@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 10 88 88" role="img" aria-label="AI 충격 감지 경보 아이콘">
+  <defs>
+    <radialGradient id="bg" cx="54" cy="50" r="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9A0E24"/>
+      <stop offset="1" stop-color="#6E0716"/>
+    </radialGradient>
+  </defs>
+  <rect x="10" y="10" width="88" height="88" rx="20" fill="url(#bg)"/>
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M54,27 C61,31 68,33.4 77,34 C78.6,34.1 79.4,35 79.4,36.6 C79.4,57 70,72.6 55.4,80.6 C54.5,81.1 53.5,81.1 52.6,80.6 C38,72.6 28.6,57 28.6,36.6 C28.6,35 29.4,34.1 31,34 C40,33.4 47,31 54,27 Z M54,32.6 C47.6,36 41.2,38.1 33.4,38.8 C34,56 41.8,68.8 54,75.8 C66.2,68.8 74,56 74.6,38.8 C66.8,38.1 60.4,36 54,32.6 Z"/>
+  <path fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="M37.5,56.5 H45 L48,51.4 L50.6,56 L53.2,43 L57,65 L60.6,51 L63.4,55.4 H70.5"/>
+</svg>
