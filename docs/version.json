@@ -1,0 +1,13 @@
+{
+  "versionCode": 4,
+  "versionName": "2.2.0",
+  "date": "2026-11-08",
+  "apk": "https://github.com/EunYool10/KTAIContest-Submission/releases/download/v2.2.0/ai-shock-alert.apk",
+  "sha256": "e96aee1be22f0341505bdfa0cb31731d3e2ab09a3669d3cc13e11657966c9707",
+  "page": "https://eunyool10.github.io/KTAIContest-Submission/",
+  "notes": [
+    "모든 판단을 휴대폰 안에서 해요.",
+    "안드로이드 15 이상에서 문자 권한이 막혀 있으면 켜는 방법을 알려 줘요.",
+    "삼성 메시지에서도 '문자 앱으로 보내기'가 제대로 동작해요."
+  ]
+}
