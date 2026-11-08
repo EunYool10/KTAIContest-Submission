@@ -80,11 +80,22 @@ class LocationTracker(private val context: Context, private val scope: Coroutine
     callback = null
   }
 
-  /** 한 번 위치를 받아 옵니다 (화면을 열었을 때 등). */
+  /**
+   * 화면을 열었을 때: 저장된 위치를 먼저 보여 주고, 새 위치를 한 번 받아 옵니다.
+   * (저장된 위치만 쓰면 한참 전 위치가 '현재 위치'로 계속 보일 수 있어요.)
+   */
   @SuppressLint("MissingPermission")
   fun refresh() {
     if (!hasPermission()) return
-    runCatching { client.lastLocation.addOnSuccessListener { it?.let(::accept) } }
+    runCatching {
+      client.lastLocation.addOnSuccessListener { it?.let(::accept) }
+      val req = CurrentLocationRequest.Builder()
+        .setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
+        .setMaxUpdateAgeMillis(60_000L)
+        .setDurationMillis(15_000L)
+        .build()
+      client.getCurrentLocation(req, null).addOnSuccessListener { it?.let(::accept) }
+    }
   }
 
   /** 긴급 상황용: 가능한 정확한 현재 위치를 최대 [timeoutMs] 동안 기다립니다. 실패하면 마지막 위치를 씁니다. */
@@ -119,6 +130,8 @@ class LocationTracker(private val context: Context, private val scope: Coroutine
 
   private fun accept(loc: Location) {
     val previous = _place.value
+    // 늦게 도착한 옛날 위치가 새 위치를 덮어쓰지 않게 합니다.
+    if (previous != null && loc.time < previous.time) return
     val p = Place(loc.latitude, loc.longitude, loc.accuracy, loc.time)
     // 주소는 많이 움직였을 때만 다시 찾습니다.
     if (previous != null && near(previous, p) && previous.address.isNotEmpty()) {

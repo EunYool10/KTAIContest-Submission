@@ -283,7 +283,10 @@ private fun SentContent(
       }
       Spacer(Modifier.height(16.dp))
       Column(Modifier.sidePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (report.callNumber.isNotBlank()) {
+        if (report.test) {
+          // 연습 중에 실수로 119 에 전화하지 않도록 테스트에서는 전화 버튼을 보여 주지 않습니다.
+          Caption("실제 상황이라면 여기에 '${report.callLabel}에 전화' 버튼이 나와요. 테스트에서는 누를 수 없게 숨겼어요.")
+        } else if (report.callNumber.isNotBlank()) {
           val number = Phone.pretty(report.callNumber)
           AppButton(
             if (report.callLabel == number || report.callLabel == report.callNumber) "${report.callLabel}에 전화" else "${report.callLabel}에게 전화 ($number)",

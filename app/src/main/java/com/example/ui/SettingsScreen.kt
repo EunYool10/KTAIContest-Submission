@@ -48,6 +48,8 @@ import com.example.data.CallTarget
 import com.example.data.Phone
 import com.example.data.Sensitivity
 import com.example.data.Settings
+import com.example.engine.UpdateCheckResult
+import com.example.engine.UpdateInfo
 import com.example.detect.GRAVITY
 import com.example.ui.theme.AppTheme
 import java.util.Locale
@@ -63,6 +65,11 @@ fun SettingsScreen(
   onCalibrate: () -> Unit,
   onReset: () -> Unit,
   modifier: Modifier = Modifier,
+  update: UpdateInfo? = null,
+  updateChecking: Boolean = false,
+  updateResult: UpdateCheckResult? = null,
+  onCheckUpdate: () -> Unit = {},
+  onOpenUpdate: (UpdateInfo) -> Unit = {},
 ) {
   var contactDialog by rememberSaveable { mutableStateOf(false) }
   var targetDialog by rememberSaveable { mutableStateOf(false) }
@@ -164,7 +171,18 @@ fun SettingsScreen(
         Section("기타") {
           RowItem("처음부터 다시 설정", subtitle = "연락처와 설정을 지워요. 기록은 남아요.", titleColor = scheme.error, onClick = { resetDialog = true }, chevron = false)
           InsetDivider()
-          RowItem("앱 버전", value = BuildConfig.VERSION_NAME)
+          RowItem(
+            "앱 버전 ${BuildConfig.VERSION_NAME}", Modifier.testTag("update_row"),
+            value = when {
+              updateChecking -> "확인 중…"
+              update != null -> "새 버전 ${update.versionName}"
+              updateResult == UpdateCheckResult.LATEST -> "최신 버전이에요"
+              updateResult == UpdateCheckResult.FAILED -> "확인하지 못했어요"
+              else -> "업데이트 확인"
+            },
+            valueColor = if (update != null) scheme.primary else scheme.onSurfaceVariant,
+            onClick = { if (update != null) onOpenUpdate(update) else onCheckUpdate() },
+          )
         }
       }
     }

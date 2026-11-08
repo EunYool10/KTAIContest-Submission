@@ -7,6 +7,8 @@ import com.example.App
 import com.example.data.FallLog
 import com.example.data.Settings
 import com.example.data.Sensitivity
+import com.example.engine.UpdateCheckResult
+import com.example.engine.UpdateInfo
 import com.example.service.MonitorService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -55,6 +57,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
   val logs: StateFlow<List<FallLog>> = engine.logs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
   val hasAccelerometer: Boolean get() = engine.hasAccelerometer
+
+  // ───────── 업데이트 ─────────
+  val update: StateFlow<UpdateInfo?> = app.updates.available
+  val updateDismissed: StateFlow<Int> = app.updates.dismissedCode
+  val updateChecking: StateFlow<Boolean> = app.updates.checking
+  private val _updateResult = MutableStateFlow<UpdateCheckResult?>(null)
+  /** 설정에서 직접 확인했을 때의 결과 */
+  val updateResult: StateFlow<UpdateCheckResult?> = _updateResult.asStateFlow()
+
+  fun checkUpdate(force: Boolean) {
+    viewModelScope.launch {
+      val r = app.updates.check(force)
+      if (force) _updateResult.value = r
+    }
+  }
+
+  fun dismissUpdate(code: Int) = app.updates.dismiss(code)
+
+  // ───────── 처음 설정 직후 문자 권한 안내 (안드로이드 15+) ─────────
+  private val _smsGuide = MutableStateFlow(false)
+  val smsGuide: StateFlow<Boolean> = _smsGuide.asStateFlow()
+  fun showSmsGuide() { _smsGuide.value = true }
+  fun closeSmsGuide() { _smsGuide.value = false }
 
   fun completeSetup(name: String, guardianName: String, guardianPhone: String, extra: String, target: com.example.data.CallTarget) {
     store.update {

@@ -59,18 +59,33 @@ fun AppRoot(vm: AppViewModel) {
   var listening by remember { mutableStateOf(false) }
   var dialedFor by rememberSaveable { mutableLongStateOf(0L) }
 
-  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.ensureMonitoring() }
+  val update by vm.update.collectAsStateWithLifecycle()
+  val updateDismissed by vm.updateDismissed.collectAsStateWithLifecycle()
+
+  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+    vm.ensureMonitoring()
+    vm.checkUpdate(force = false)
+  }
 
   // Surface 가 글자색(onBackground)을 정해 줘야 어두운 테마에서도 글자가 보입니다.
   Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
    Box(Modifier.fillMaxSize()) {
     when {
-      !settings.setupComplete -> OnboardingScreen(settings, vm::completeSetup, vm::finishOnboarding)
+      !settings.setupComplete -> OnboardingScreen(settings, vm::completeSetup, vm::finishOnboarding, onSmsBlocked = vm::showSmsGuide)
       calibration.step != CalStep.IDLE -> CalibrationScreen(calibration, live, settings, vm::calibrationNext, vm::retryImpact, vm::endCalibration)
       else -> MainTabs(vm, settings)
     }
 
     val a = alert
+    // 새 버전이 나오면 한 번 띄웁니다 (처음 설정 중이거나 경보 중에는 띄우지 않음).
+    val u = update
+    if (u != null && u.versionCode > updateDismissed && settings.setupComplete && a == null && calibration.step == CalStep.IDLE) {
+      UpdateDialog(
+        u,
+        onUpdate = { vm.dismissUpdate(u.versionCode); openUpdate(context, u) },
+        onLater = { vm.dismissUpdate(u.versionCode) },
+      )
+    }
     VoiceCancelEffect(
       active = a is AlertState.Countdown && settings.voiceCancelEnabled,
       onOkay = vm::imOkay, onHelp = vm::requestHelp, onListening = { listening = it },
@@ -105,11 +120,22 @@ private fun MainTabs(vm: AppViewModel, settings: Settings) {
   val notice by vm.notice.collectAsStateWithLifecycle()
   val testing by vm.testing.collectAsStateWithLifecycle()
   val logs by vm.logs.collectAsStateWithLifecycle()
+  val update by vm.update.collectAsStateWithLifecycle()
+  val updateChecking by vm.updateChecking.collectAsStateWithLifecycle()
+  val updateResult by vm.updateResult.collectAsStateWithLifecycle()
+  val setupSmsGuide by vm.smsGuide.collectAsStateWithLifecycle()
+  val context = LocalContext.current
   val readiness = rememberReadiness(settings, vm.hasAccelerometer) {
     tab = 2
     openContacts = true
   }
-  if (readiness.smsGuide) SmsPermissionGuide(readiness.closeSmsGuide)
+  // 문자 권한이 막혔을 때 (준비 상태에서 눌렀거나, 처음 설정 직후) 켜는 방법을 보여 줍니다.
+  if (readiness.smsGuide || setupSmsGuide) {
+    SmsPermissionGuide {
+      readiness.closeSmsGuide()
+      vm.closeSmsGuide()
+    }
+  }
 
   val tabs = listOf(
     Triple("홈", Icons.Filled.Home, Icons.Outlined.Home),
@@ -160,6 +186,7 @@ private fun MainTabs(vm: AppViewModel, settings: Settings) {
           notice = notice, testing = testing, readiness = readiness, recent = logs,
           onMonitoring = vm::setMonitoring, onHelp = vm::requestHelp, onTest = vm::startTest,
           onDismissNotice = vm::dismissNotice, onOpenHistory = { tab = 1 },
+          update = update, onUpdate = { openUpdate(context, it) },
         )
         1 -> HistoryScreen(logs, vm::deleteLog, vm::clearLogs)
         else -> SettingsScreen(
@@ -167,6 +194,8 @@ private fun MainTabs(vm: AppViewModel, settings: Settings) {
           openContacts = openContacts, onContactsShown = { openContacts = false },
           onUpdate = vm::update, onSensitivity = vm::setSensitivity, onThresholds = vm::setThresholds,
           onCalibrate = vm::startCalibration, onReset = vm::resetAll,
+          update = update, updateChecking = updateChecking, updateResult = updateResult,
+          onCheckUpdate = { vm.checkUpdate(force = true) }, onOpenUpdate = { openUpdate(context, it) },
         )
       }
     }

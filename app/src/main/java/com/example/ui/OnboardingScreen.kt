@@ -52,6 +52,7 @@ fun OnboardingScreen(
   onSaveContacts: (name: String, guardianName: String, guardianPhone: String, extra: String, target: CallTarget) -> Unit,
   onFinish: (startMonitoring: Boolean) -> Unit,
   startStep: Int = 0,
+  onSmsBlocked: () -> Unit = {},
 ) {
   var step by rememberSaveable { mutableIntStateOf(startStep) }
   var name by rememberSaveable { mutableStateOf(initial.userName) }
@@ -60,7 +61,11 @@ fun OnboardingScreen(
   var extra by rememberSaveable { mutableStateOf(initial.extraContact) }
   var target by rememberSaveable { mutableStateOf(initial.callTarget) }
   var showErrors by rememberSaveable { mutableStateOf(false) }
-  val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { onFinish(true) }
+  val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+    // 안드로이드 15+: 설치 파일로 설치한 앱은 문자 권한이 막혀 있어 바로 켜는 방법을 알려 줍니다.
+    if (smsMayBeRestricted && result[android.Manifest.permission.SEND_SMS] == false) onSmsBlocked()
+    onFinish(true)
+  }
   val scheme = MaterialTheme.colorScheme
 
   if (step > 0) BackHandler { step-- }

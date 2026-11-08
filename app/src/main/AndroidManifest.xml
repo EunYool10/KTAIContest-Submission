@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 새 버전 확인에만 씁니다 (설치 사이트의 version.json 요청). 센서 값·개인 정보는 보내지 않아요. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- 긴급 문자에 넣을 위치 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />

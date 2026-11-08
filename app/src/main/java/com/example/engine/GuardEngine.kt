@@ -281,9 +281,10 @@ class GuardEngine(
   private suspend fun startCountdown(e: ShockEvent?, analysis: Analysis, test: Boolean) {
     val s = settings.value
     val total = s.countdownSeconds
+    // 기록을 먼저 만들어 둡니다. 경보가 뜨자마자 '괜찮아요'를 눌러도 기록이 '확인 중'으로 남지 않게.
+    activeLogId = insertLog(LogKind.EMERGENCY, e, analysis, "확인 중", test)
     val endsAt = System.currentTimeMillis() + total * 1000L
     _alert.value = AlertState.Countdown(e, analysis, endsAt, total, test)
-    activeLogId = insertLog(LogKind.EMERGENCY, e, analysis, "확인 중", test)
     Notifications.showCountdown(context, endsAt, s, test)
 
     withContext(Dispatchers.Main) {

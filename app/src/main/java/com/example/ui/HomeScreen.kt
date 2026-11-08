@@ -51,6 +51,7 @@ import com.example.engine.Live
 import com.example.engine.MonitorStatus
 import com.example.engine.Notice
 import com.example.engine.Place
+import com.example.engine.UpdateInfo
 import com.example.ui.theme.AlarmRed
 import com.example.ui.theme.AppTheme
 import kotlinx.coroutines.launch
@@ -72,15 +73,20 @@ fun HomeScreen(
   onDismissNotice: () -> Unit,
   onOpenHistory: () -> Unit,
   modifier: Modifier = Modifier,
+  update: UpdateInfo? = null,
+  onUpdate: (UpdateInfo) -> Unit = {},
 ) {
   var confirmHelp by rememberSaveable { mutableStateOf(false) }
   var confirmOff by rememberSaveable { mutableStateOf(false) }
   val listState = rememberLazyListState()
   val scope = rememberCoroutineScope()
-  // 항목 순서: 상태, (안내), 움직임, 위치, 준비 상태, 최근 기록
-  val readinessIndex = if (notice != null) 4 else 3
+  // 항목 순서: (업데이트), 상태, (안내), 움직임, 위치, 준비 상태, 최근 기록
+  val readinessIndex = (if (update != null) 1 else 0) + 1 + (if (notice != null) 1 else 0) + 2
 
   LazyColumn(modifier.fillMaxSize().testTag("home"), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
+    if (update != null) {
+      item(key = "update") { Column { UpdateSection(update) { onUpdate(update) }; SectionGap() } }
+    }
     item(key = "status") {
       StatusSection(
         settings, status, readiness.missingEssential, testing,

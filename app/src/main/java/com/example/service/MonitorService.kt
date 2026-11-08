@@ -9,9 +9,18 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.example.App
+import com.example.engine.UpdateCheckResult
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * 화면이 꺼져 있어도 충격을 감지하도록 붙잡아 두는 포그라운드 서비스.
@@ -20,6 +29,7 @@ import com.example.App
 class MonitorService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   private val app get() = application as App
+  private var jobs: List<Job> = emptyList()
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -31,6 +41,33 @@ class MonitorService : Service() {
       .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AiShockGuard:monitor")
       .apply { setReferenceCounted(false); acquire() }
     app.engine.onMonitoringStarted()
+    jobs = listOf(
+      // 보호자 이름·확인 시간을 바꾸면 '충격 감지 중' 알림 문구도 바로 바꿉니다.
+      app.scope.launch {
+        app.settings.state.map { it.guardianName to it.countdownSeconds to it.extraContact }.distinctUntilChanged().drop(1).collect {
+          runCatching {
+            NotificationManagerCompat.from(this@MonitorService).notify(Notifications.ID_MONITOR, Notifications.monitoring(this@MonitorService, app.settings.value))
+          }
+        }
+      },
+      // 앱을 열지 않아도 새 버전이 나오면 알림으로 알려 줍니다 (6시간마다 확인, 버전마다 한 번).
+      // 앱을 연 직후에는 화면의 업데이트 안내가 먼저 뜨도록 30분 뒤부터 확인합니다.
+      app.scope.launch {
+        delay(30 * 60 * 1000L)
+        while (isActive) {
+          if (app.updates.check() == UpdateCheckResult.UPDATE) {
+            app.updates.available.value?.let { info ->
+              val alreadySeen = info.versionCode <= app.updates.dismissedCode.value
+              // 알림을 실제로 보낼 수 있을 때만 '보냈다'고 기록합니다 (알림 권한이 없으면 나중에 다시 시도).
+              if (!alreadySeen && Notifications.canPost(this@MonitorService) && app.updates.claimNotification(info)) {
+                Notifications.showUpdate(this@MonitorService, info)
+              }
+            }
+          }
+          delay(6 * 60 * 60 * 1000L)
+        }
+      },
+    )
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -65,6 +102,8 @@ class MonitorService : Service() {
   }
 
   override fun onDestroy() {
+    jobs.forEach { it.cancel() }
+    jobs = emptyList()
     app.engine.onMonitoringStopped()
     wakeLock?.let { if (it.isHeld) it.release() }
     wakeLock = null

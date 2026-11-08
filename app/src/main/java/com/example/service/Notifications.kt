@@ -24,10 +24,12 @@ object Notifications {
   const val CH_MONITOR = "monitor"
   const val CH_ALERT = "alert"
   const val CH_NOTICE = "notice"
+  const val CH_UPDATE = "update"
 
   const val ID_MONITOR = 1
   private const val ID_ALERT = 2
   private const val ID_NOTICE = 3
+  private const val ID_UPDATE = 4
 
   fun createChannels(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -46,6 +48,10 @@ object Notifications {
         },
         NotificationChannel(CH_NOTICE, "충격 안내", NotificationManager.IMPORTANCE_DEFAULT).apply {
           description = "약한 충격이 감지됐을 때 안내해요."
+        },
+        NotificationChannel(CH_UPDATE, "업데이트 안내", NotificationManager.IMPORTANCE_DEFAULT).apply {
+          description = "새 버전이 나오면 알려 줘요."
+          setShowBadge(true)
         },
       )
     )
@@ -135,6 +141,28 @@ object Notifications {
         .setContentText(text)
         .setStyle(NotificationCompat.BigTextStyle().bigText(text))
         .setContentIntent(openApp(context))
+        .setAutoCancel(true)
+        .build()
+    )
+  }
+
+  /** 새 버전 알림: 누르면 앱이 열리고, '내려받기'는 설치 파일을 바로 받습니다. */
+  fun showUpdate(context: Context, info: com.example.engine.UpdateInfo) {
+    val download = PendingIntent.getActivity(
+      context, 30,
+      Intent(Intent.ACTION_VIEW, Uri.parse(info.apkUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+    val text = "${info.versionName} 버전이 나왔어요. 업데이트해도 설정과 기록은 그대로 남아요."
+    notify(
+      context, ID_UPDATE,
+      NotificationCompat.Builder(context, CH_UPDATE)
+        .setSmallIcon(R.drawable.ic_stat_guard)
+        .setContentTitle("새 업데이트가 있어요")
+        .setContentText(text)
+        .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+        .setContentIntent(openApp(context, 2))
+        .addAction(0, "내려받기", download)
         .setAutoCancel(true)
         .build()
     )

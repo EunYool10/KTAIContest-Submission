@@ -23,6 +23,7 @@ import com.example.engine.Place
 import com.example.engine.Recipient
 import com.example.engine.SentReport
 import com.example.engine.SmsStatus
+import com.example.engine.UpdateInfo
 import com.example.ui.AlertScreen
 import com.example.ui.Calibration
 import com.example.ui.CalStep
@@ -94,13 +95,16 @@ class ScreenshotTest {
   }
 
   @Composable
-  private fun home(status: MonitorStatus = MonitorStatus.ON, notice: Notice? = null) = HomeScreen(
+  private fun home(status: MonitorStatus = MonitorStatus.ON, notice: Notice? = null, update: UpdateInfo? = null) = HomeScreen(
     settings = settings, status = status, live = live, place = place, hasLocationPermission = true,
     notice = notice, testing = false, readiness = ReadinessState(checks) {}, recent = logs,
-    onMonitoring = {}, onHelp = {}, onTest = {}, onDismissNotice = {}, onOpenHistory = {},
+    onMonitoring = {}, onHelp = {}, onTest = {}, onDismissNotice = {}, onOpenHistory = {}, update = update,
   )
 
   @Test fun home_on() = shot("home_on") { home() }
+  @Test fun home_update() = shot("home_update") {
+    home(update = UpdateInfo(9, "2.4.0", "2026-11-20", UpdateInfo.RELEASES + "v2.4.0/ai-shock-alert.apk", UpdateInfo.SITE, listOf("새 버전이 나오면 앱에서 알려 줘요.", "문자 전송이 더 안정적이에요.")))
+  }
   @Test fun home_dark() = shot("home_dark", dark = true) { home() }
   @Test fun home_off_notice() = shot("home_off_notice") {
     home(MonitorStatus.OFF, Notice("충격이 있었어요", "1.8G 충격이 감지됐어요. 넘어지셨다면 바로 일어나지 말고 잠시 숨을 고른 뒤 천천히 일어나세요.", now - 60_000))
