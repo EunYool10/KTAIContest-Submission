@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="66dp"
-        android:height="66dp"
-        android:drawable="@drawable/ic_fall_icon"
-        android:gravity="center" />
-</layer-list>
+<!-- 런처 아이콘 전경: 흰 방패 + 심박선 (108dp 캔버스, 안전 영역 안쪽) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,27 C61,31 68,33.4 77,34 C78.6,34.1 79.4,35 79.4,36.6 C79.4,57 70,72.6 55.4,80.6 C54.5,81.1 53.5,81.1 52.6,80.6 C38,72.6 28.6,57 28.6,36.6 C28.6,35 29.4,34.1 31,34 C40,33.4 47,31 54,27 Z M54,32.6 C47.6,36 41.2,38.1 33.4,38.8 C34,56 41.8,68.8 54,75.8 C66.2,68.8 74,56 74.6,38.8 C66.8,38.1 60.4,36 54,32.6 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M37.5,56.5 H45 L48,51.4 L50.6,56 L53.2,43 L57,65 L60.6,51 L63.4,55.4 H70.5" />
+</vector>
