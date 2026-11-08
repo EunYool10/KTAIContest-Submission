@@ -2,7 +2,6 @@ package com.example.engine
 
 import android.content.Context
 import android.os.SystemClock
-import com.example.BuildConfig
 import com.example.data.FallLog
 import com.example.data.FallLogDao
 import com.example.data.LogKind
@@ -11,7 +10,6 @@ import com.example.detect.Analysis
 import com.example.detect.FallDetector
 import com.example.detect.FallSimulation
 import com.example.detect.GRAVITY
-import com.example.detect.GeminiAnalyzer
 import com.example.detect.LocalRules
 import com.example.detect.ShockEvent
 import com.example.detect.Verdict
@@ -66,9 +64,6 @@ data class SentReport(
 sealed interface AlertState {
   val test: Boolean
 
-  /** 충격 뒤 AI 가 판단하는 중 (최대 약 9초) */
-  data class Checking(val event: ShockEvent, override val test: Boolean) : AlertState
-
   /** "괜찮으세요?" 확인 카운트다운 */
   data class Countdown(
     val event: ShockEvent?,
@@ -99,15 +94,6 @@ class GuardEngine(
   val location = LocationTracker(context, scope)
   private val alarm = Alarm(context)
   private val sms = SmsSender(context)
-  val modelName: String = BuildConfig.GEMINI_MODEL.trim().ifBlank { "gemini-3.5-flash" }
-  private val certSha1: String? by lazy { signingSha1(context) }
-  /** 설치 파일에 들어 있는 키 (.env 로 빌드한 경우). 앱에서 입력한 키가 있으면 그쪽이 우선입니다. */
-  val builtInKey: String = BuildConfig.GEMINI_API_KEY.trim()
-  val gemini = GeminiAnalyzer(
-    keyProvider = { settings.value.geminiKey.ifBlank { builtInKey } },
-    model = modelName,
-    packageName = context.packageName,
-  ) { certSha1 }
 
   private val lock = Any()
   private val detector = FallDetector(settings.value.let { min(it.warningThreshold, it.emergencyThreshold) })
@@ -280,23 +266,15 @@ class GuardEngine(
       return
     }
 
-    _alert.value = AlertState.Checking(e, test)
-    Notifications.showChecking(context, test)
-    if (!test) scope.launch { location.fresh() }
-
-    val analysis = gemini.analyze(e, s.warningThreshold, s.emergencyThreshold)
-      ?: LocalRules.analyze(e, s.emergencyThreshold)
-
-    // 판단하는 동안 사용자가 이미 '괜찮아요' 나 '도움 요청' 을 눌렀으면 끝
-    if (_alert.value !is AlertState.Checking) return
-
+    // 휴대폰 안에서 바로 판단합니다 (인터넷 필요 없음).
+    val analysis = LocalRules.analyze(e, s.emergencyThreshold)
     if (analysis.verdict == Verdict.NORMAL) {
-      _alert.value = null
-      Notifications.cancelAlert(context)
       _notice.value = Notice("큰 충격이 있었지만 괜찮아 보여요", analysis.reason)
       insertLog(LogKind.EMERGENCY, e, analysis, "경보 없음 (정상으로 판단)", test)
       return
     }
+    // 문자에 넣을 위치를 미리 새로 받아 둡니다.
+    if (!test) scope.launch { location.fresh() }
     startCountdown(e, analysis, test)
   }
 
@@ -340,12 +318,8 @@ class GuardEngine(
     Notifications.cancelAlert(context)
     val logId = activeLogId
     activeLogId = null
-    scope.launch {
-      when (a) {
-        is AlertState.Checking -> insertLog(LogKind.EMERGENCY, a.event, null, "괜찮아요 (판단 중 취소)", a.test)
-        is AlertState.Countdown -> logId?.let { dao.updateResponse(it, "괜찮아요") }
-        else -> Unit
-      }
+    if (a is AlertState.Countdown && logId != null) {
+      scope.launch { dao.updateResponse(logId, "괜찮아요") }
     }
   }
 
@@ -419,8 +393,7 @@ class GuardEngine(
       dao.updateResponse(logId, response)
     } else {
       val kind = if (from == null) LogKind.SOS else LogKind.EMERGENCY
-      val event = (from as? AlertState.Checking)?.event
-      insertLog(kind, event, null, response, test, place)
+      insertLog(kind, (from as? AlertState.Countdown)?.event, null, response, test, place)
     }
 
     if (!test) {
@@ -481,23 +454,6 @@ class GuardEngine(
   fun clearLogs() = scope.launch(Dispatchers.IO) { dao.clearAllLogs() }
 
   companion object {
-    /** 앱 서명 인증서의 SHA-1 (대문자 16진수, 구분자 없음). API 키를 이 앱으로 제한할 때 씁니다. */
-    fun signingSha1(context: Context): String? = try {
-      val pm = context.packageManager
-      val signatures = if (android.os.Build.VERSION.SDK_INT >= 28) {
-        pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
-          .signingInfo?.apkContentsSigners
-      } else {
-        @Suppress("DEPRECATION")
-        pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES).signatures
-      }
-      signatures?.firstOrNull()?.toByteArray()?.let { bytes ->
-        java.security.MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02X".format(it) }
-      }
-    } catch (_: Exception) {
-      null
-    }
-
     const val MONITOR = "monitor"
     const val HISTORY_POINTS = 100
     fun gText(accel: Float) = String.format(java.util.Locale.US, "%.1fG", accel / GRAVITY)

@@ -66,7 +66,7 @@ class ScreenshotTest {
   private val event = ShockEvent(now, 31.2f, 420f, 320, 82f, 0.05f)
   private val analysis = Analysis(
     Verdict.EMERGENCY, 0.92,
-    "큰 충격(3.2G) 직전 0.3초 동안 떨어지는 움직임이 있었고, 그 뒤 거의 움직이지 않아 넘어져 다쳤을 가능성이 높아요.", "Gemini",
+    "큰 충격(3.2G) 직전 0.3초 동안 떨어지는 움직임이 있었고, 그 뒤 거의 움직이지 않아 넘어져 다쳤을 가능성이 높아요.", "기기 안 규칙",
   )
   private val checks = listOf(
     Check(CheckId.SENSOR, "움직임 센서", "가속도 센서를 쓸 수 있어요.", "", true, true),
@@ -75,12 +75,11 @@ class ScreenshotTest {
     Check(CheckId.LOCATION, "위치", "도움 요청 문자에 현재 위치를 넣어요.", "", true, true, "허용"),
     Check(CheckId.SMS, "문자 자동 전송", "응답이 없으면 보호자에게 바로 문자를 보내요.", "", true, true, "허용"),
     Check(CheckId.BATTERY, "배터리 최적화 제외", "", "절전 모드에서 감지가 멈출 수 있어요.", false, false, "설정"),
-    Check(CheckId.AI, "AI 판단", "Gemini가 판단해요.", "", true, false),
   )
   private val logs = listOf(
-    FallLog(1, now - 3_600_000, 37.5559, 126.9723, "응급상황 가능성 높음", "괜찮아요", false, 31f, 0.92, analysis.reason, "서울특별시 중구 한강대로 405", true, LogKind.EMERGENCY.key, "Gemini"),
+    FallLog(1, now - 3_600_000, 37.5559, 126.9723, "응급상황 가능성 높음", "괜찮아요", false, 31f, 0.92, analysis.reason, "서울특별시 중구 한강대로 405", true, LogKind.EMERGENCY.key, "기기 안 규칙"),
     FallLog(2, now - 7_200_000, 37.5559, 126.9723, "낙상 의심", "안내만 표시", false, 18f, 0.68, "", "", true, LogKind.WARNING.key, "기기 안 규칙"),
-    FallLog(3, now - 90_000_000, 37.5559, 126.9723, "응급상황 가능성 높음", "응답 없음 → 자동 문자", true, 33f, 0.95, "", "", false, LogKind.EMERGENCY.key, "Gemini"),
+    FallLog(3, now - 90_000_000, 37.5559, 126.9723, "응급상황 가능성 높음", "응답 없음 → 자동 문자", true, 33f, 0.95, "", "", false, LogKind.EMERGENCY.key, "기기 안 규칙"),
     FallLog(4, now - 95_000_000, 0.0, 0.0, "", "직접 도움 요청", false, 0f, 0.0, "", "", false, LogKind.SOS.key, ""),
   )
 
@@ -111,9 +110,6 @@ class ScreenshotTest {
   @Test fun onboarding_contacts() = shot("onboarding_contacts") { OnboardingScreen(Settings(userName = "홍길동"), { _, _, _, _, _ -> }, {}, startStep = 1) }
   @Test fun onboarding_permissions() = shot("onboarding_permissions") { OnboardingScreen(settings, { _, _, _, _, _ -> }, {}, startStep = 3) }
 
-  @Test fun alert_checking() = shot("alert_checking") {
-    AlertScreen(AlertState.Checking(event, test = false), settings, false, {}, {}, {}, {}, {})
-  }
   @Test fun alert_countdown() = shot("alert_countdown") {
     AlertScreen(AlertState.Countdown(event, analysis, now + 21_400, 30, test = false), settings, true, {}, {}, {}, {}, {})
   }
@@ -136,7 +132,7 @@ class ScreenshotTest {
 
   @Test fun history() = shot("history") { HistoryScreen(logs, {}, {}) }
   @Test fun settings() = shot("settings") {
-    SettingsScreen(settings.copy(geminiKey = "AIzaSy-example-key-7f3a"), true, "gemini-3.5-flash", false, {}, {}, {}, { _, _ -> }, {}, {})
+    SettingsScreen(settings, false, {}, {}, {}, { _, _ -> }, {}, {})
   }
   @Test fun calibration_result() = shot("calibration_result") {
     CalibrationScreen(Calibration(CalStep.RESULT, 0, 15.2f, 44f), live, settings, {}, {}, {})

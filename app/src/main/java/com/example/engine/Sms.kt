@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.telephony.SmsManager
+import android.telephony.SubscriptionManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.App
@@ -49,13 +50,18 @@ class SmsSender(private val context: Context) {
     context.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) &&
       ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED
 
-  private fun manager(): SmsManager? =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      context.getSystemService(SmsManager::class.java)
+  /** 유심이 두 개인 휴대폰은 '문자 기본 유심'으로 보냅니다. 정해져 있지 않으면 시스템 기본값을 씁니다. */
+  private fun manager(): SmsManager? {
+    val subId = SubscriptionManager.getDefaultSmsSubscriptionId()
+    val valid = subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      val base = context.getSystemService(SmsManager::class.java)
+      if (valid) base?.createForSubscriptionId(subId) else base
     } else {
       @Suppress("DEPRECATION")
-      SmsManager.getDefault()
+      if (valid) SmsManager.getSmsManagerForSubscriptionId(subId) else SmsManager.getDefault()
     }
+  }
 
   /** 보낼 수 있으면 true. 실제 결과는 나중에 [onResult] 로 옵니다. */
   fun send(sendId: Long, number: String, text: String): Boolean {

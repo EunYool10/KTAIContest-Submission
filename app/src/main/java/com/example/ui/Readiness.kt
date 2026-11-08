@@ -13,12 +13,19 @@ import android.os.PowerManager
 import android.provider.Settings as SysSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -27,7 +34,7 @@ import com.example.data.Phone
 import com.example.data.Settings
 import com.example.service.Notifications
 
-enum class CheckId { SENSOR, CONTACT, NOTIFY, LOCATION, SMS, FULLSCREEN, BATTERY, MIC, AI }
+enum class CheckId { SENSOR, CONTACT, NOTIFY, LOCATION, SMS, FULLSCREEN, BATTERY, MIC }
 
 data class Check(
   val id: CheckId,
@@ -42,6 +49,9 @@ data class Check(
   val text: String get() = if (ok) okText else needText
 }
 
+/** 안드로이드 15부터 설치 파일로 설치한 앱은 문자 권한이 '제한된 설정'으로 막혀 있습니다. */
+val smsMayBeRestricted: Boolean get() = Build.VERSION.SDK_INT >= 35
+
 fun Context.granted(permission: String) =
   ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
@@ -54,7 +64,7 @@ fun Context.findActivity(): Activity? {
   return null
 }
 
-fun buildChecks(context: Context, settings: Settings, hasAccelerometer: Boolean, geminiConfigured: Boolean, modelName: String): List<Check> {
+fun buildChecks(context: Context, settings: Settings, hasAccelerometer: Boolean): List<Check> {
   val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
   val batteryOk = Build.VERSION.SDK_INT < Build.VERSION_CODES.M || pm?.isIgnoringBatteryOptimizations(context.packageName) == true
   val hasPhone = context.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
@@ -67,26 +77,30 @@ fun buildChecks(context: Context, settings: Settings, hasAccelerometer: Boolean,
       Notifications.canPost(context), true, "허용"),
     Check(CheckId.LOCATION, "위치", "도움 요청 문자에 현재 위치를 넣어요.", "위치 권한이 없으면 문자에 위치를 넣을 수 없어요.",
       context.granted(Manifest.permission.ACCESS_FINE_LOCATION) || context.granted(Manifest.permission.ACCESS_COARSE_LOCATION), true, "허용"),
-    Check(CheckId.SMS, "문자 자동 전송", if (hasPhone) "응답이 없으면 보호자에게 바로 문자를 보내요." else "이 기기는 문자를 보낼 수 없어요.",
-      "권한이 없으면 문자를 자동으로 보내지 못해요.", !hasPhone || context.granted(Manifest.permission.SEND_SMS), true, "허용"),
+    Check(
+      CheckId.SMS, "문자 자동 전송",
+      if (hasPhone) "응답이 없으면 보호자에게 바로 문자를 보내요." else "이 기기는 문자를 보낼 수 없어요.",
+      if (smsMayBeRestricted) "권한이 없으면 문자를 자동으로 보내지 못해요. 안드로이드 15부터는 '제한된 설정 허용'을 먼저 켜야 해요."
+      else "권한이 없으면 문자를 자동으로 보내지 못해요.",
+      !hasPhone || context.granted(Manifest.permission.SEND_SMS), true, "허용",
+    ),
     Check(CheckId.FULLSCREEN, "잠금 화면 경보", "화면이 잠겨 있어도 경보 화면을 띄워요.", "허용하면 잠금 화면 위로 경보 화면이 바로 떠요.",
       Notifications.canFullScreen(context), false, "설정"),
     Check(CheckId.BATTERY, "배터리 최적화 제외", "절전 중에도 감지가 멈추지 않아요.", "절전 모드에서 감지가 멈출 수 있어요.",
       batteryOk, false, "설정"),
     Check(CheckId.MIC, "음성으로 취소", "경보 중 '괜찮아'라고 말하면 취소돼요.", "마이크를 허용하면 말로 경보를 끌 수 있어요.",
       !settings.voiceCancelEnabled || context.granted(Manifest.permission.RECORD_AUDIO), false, "허용"),
-    // 사용자가 고칠 수 있는 항목이 아니라서 항상 '준비됨'으로 두고 설명만 바꿉니다.
-    Check(CheckId.AI, "판단 방식",
-      if (geminiConfigured) "AI(Gemini)가 충격 데이터를 판단해요. 연결이 안 되면 기기 안 규칙으로 판단해요."
-      else "기기 안 규칙으로 판단해요. 설정에서 Gemini API 키를 넣으면 AI가 함께 판단해요.",
-      "", true, false),
   )
 }
 
 /** 화면에 돌아올 때마다 다시 계산되는 준비 상태 + 고치기 동작 */
-class ReadinessState(val checks: List<Check>, val fix: (CheckId) -> Unit) {
+class ReadinessState(
+  val checks: List<Check>,
+  val smsGuide: Boolean = false,
+  val closeSmsGuide: () -> Unit = {},
+  val fix: (CheckId) -> Unit,
+) {
   val missingEssential get() = checks.count { it.essential && !it.ok }
-  val missingOptional get() = checks.count { !it.essential && !it.ok && it.actionLabel != null }
 }
 
 @SuppressLint("BatteryLife")
@@ -94,14 +108,17 @@ class ReadinessState(val checks: List<Check>, val fix: (CheckId) -> Unit) {
 fun rememberReadiness(
   settings: Settings,
   hasAccelerometer: Boolean,
-  geminiConfigured: Boolean,
-  modelName: String,
   onEditContacts: () -> Unit,
 ): ReadinessState {
   val context = LocalContext.current
   var tick by remember { mutableIntStateOf(0) }
+  var smsGuide by remember { mutableStateOf(false) }
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tick++ }
-  val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { tick++ }
+  val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+    tick++
+    // 안드로이드 15+: 설치 파일로 설치한 앱은 문자 권한 요청이 바로 거절됩니다. 켜는 방법을 알려 줍니다.
+    if (smsMayBeRestricted && result[Manifest.permission.SEND_SMS] == false) smsGuide = true
+  }
   val prefs = remember { context.getSharedPreferences("permission_asked", Context.MODE_PRIVATE) }
 
   fun request(vararg permissions: String) {
@@ -109,17 +126,15 @@ fun rememberReadiness(
     val askedBefore = permissions.any { prefs.getBoolean(it, false) }
     val blocked = activity != null && askedBefore && permissions.none { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) }
     if (blocked) {
-      openAppSettings(context)
+      if (smsMayBeRestricted && Manifest.permission.SEND_SMS in permissions) smsGuide = true else openAppSettings(context)
     } else {
       prefs.edit().apply { permissions.forEach { putBoolean(it, true) } }.apply()
       launcher.launch(arrayOf(*permissions))
     }
   }
 
-  val checks = remember(tick, settings, hasAccelerometer, geminiConfigured) {
-    buildChecks(context, settings, hasAccelerometer, geminiConfigured, modelName)
-  }
-  return ReadinessState(checks) { id ->
+  val checks = remember(tick, settings, hasAccelerometer) { buildChecks(context, settings, hasAccelerometer) }
+  return ReadinessState(checks, smsGuide, { smsGuide = false }) { id ->
     when (id) {
       CheckId.CONTACT -> onEditContacts()
       CheckId.NOTIFY -> if (Build.VERSION.SDK_INT >= 33) request(Manifest.permission.POST_NOTIFICATIONS) else openAppSettings(context)
@@ -134,9 +149,34 @@ fun rememberReadiness(
           tryStart(context, Intent(SysSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }
       }
-      CheckId.SENSOR, CheckId.AI -> Unit
+      CheckId.SENSOR -> Unit
     }
   }
+}
+
+/** 안드로이드 15+ 에서 막힌 문자 권한을 켜는 방법 */
+@Composable
+fun SmsPermissionGuide(onDismiss: () -> Unit) {
+  val context = LocalContext.current
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("문자 권한 켜는 방법") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+          "안드로이드 15부터는 설치 파일로 설치한 앱의 문자 권한이 처음에 막혀 있어요. 아래 순서대로 한 번만 풀어 주세요.",
+          style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+          "1. '앱 정보 열기'를 눌러요.\n2. 오른쪽 위 ⋮(더보기)를 누르고 '제한된 설정 허용'을 눌러요.\n3. '권한' → 'SMS'에서 '허용'을 골라요.",
+          style = MaterialTheme.typography.bodyMedium,
+        )
+        Caption("'제한된 설정 허용'이 안 보이면 문자 권한을 한 번 더 요청한 뒤 다시 확인해 주세요.")
+      }
+    },
+    confirmButton = { AppTextButton("앱 정보 열기", { onDismiss(); openAppSettings(context) }) },
+    dismissButton = { AppTextButton("닫기", onDismiss, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+  )
 }
 
 /** 처음 설정 마지막 단계에서 한 번에 요청할 권한 */

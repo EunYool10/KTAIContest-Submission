@@ -105,10 +105,11 @@ private fun MainTabs(vm: AppViewModel, settings: Settings) {
   val notice by vm.notice.collectAsStateWithLifecycle()
   val testing by vm.testing.collectAsStateWithLifecycle()
   val logs by vm.logs.collectAsStateWithLifecycle()
-  val readiness = rememberReadiness(settings, vm.hasAccelerometer, vm.geminiConfigured, vm.modelName) {
+  val readiness = rememberReadiness(settings, vm.hasAccelerometer) {
     tab = 2
     openContacts = true
   }
+  if (readiness.smsGuide) SmsPermissionGuide(readiness.closeSmsGuide)
 
   val tabs = listOf(
     Triple("홈", Icons.Filled.Home, Icons.Outlined.Home),
@@ -162,11 +163,10 @@ private fun MainTabs(vm: AppViewModel, settings: Settings) {
         )
         1 -> HistoryScreen(logs, vm::deleteLog, vm::clearLogs)
         else -> SettingsScreen(
-          settings = settings, geminiConfigured = vm.geminiConfigured, modelName = vm.modelName,
+          settings = settings,
           openContacts = openContacts, onContactsShown = { openContacts = false },
           onUpdate = vm::update, onSensitivity = vm::setSensitivity, onThresholds = vm::setThresholds,
           onCalibrate = vm::startCalibration, onReset = vm::resetAll,
-          hasBuiltInKey = vm.hasBuiltInKey, onSaveKey = vm::saveGeminiKey, onCheckKey = vm::checkGeminiKey,
         )
       }
     }
@@ -177,7 +177,19 @@ fun dial(context: Context, number: String) {
   tryStart(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Phone.digits(number))))
 }
 
+/**
+ * 문자 앱에 받는 사람과 내용을 채워 엽니다 (사용자가 '보내기'만 누르면 됨).
+ * 받는 사람이 여럿이면 구분 기호가 제조사마다 달라서, 삼성 메시지는 쉼표(,), 그 밖에는 세미콜론(;)을 씁니다.
+ */
 fun openSmsApp(context: Context, report: SentReport) {
-  val to = report.recipients.joinToString(";") { Phone.digits(it.number) }
-  tryStart(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$to")).putExtra("sms_body", report.message))
+  val separator = if (android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)) "," else ";"
+  val to = report.recipients.joinToString(separator) { Phone.digits(it.number) }
+  val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(to, ",;")))
+    .putExtra("sms_body", report.message)
+    .putExtra(Intent.EXTRA_TEXT, report.message)
+  if (!tryStart(context, intent)) {
+    // 문자 앱이 받는 사람 목록을 못 받으면 첫 번째 사람에게라도 보내게 합니다.
+    val first = report.recipients.firstOrNull()?.let { Phone.digits(it.number) } ?: return
+    tryStart(context, Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$first")).putExtra("sms_body", report.message))
+  }
 }

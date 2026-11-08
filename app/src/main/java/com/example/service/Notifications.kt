@@ -79,23 +79,6 @@ object Notifications {
       .build()
   }
 
-  fun showChecking(context: Context, test: Boolean) {
-    notify(
-      context, ID_ALERT,
-      NotificationCompat.Builder(context, CH_ALERT)
-        .setSmallIcon(R.drawable.ic_stat_guard)
-        .setContentTitle(if (test) "[테스트] 충격을 확인하고 있어요" else "충격을 확인하고 있어요")
-        .setContentText("잠시만 기다려 주세요. 괜찮으면 '괜찮아요'를 눌러 주세요.")
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setCategory(NotificationCompat.CATEGORY_ALARM)
-        .setOngoing(true)
-        .setContentIntent(openApp(context))
-        .setFullScreenIntent(openApp(context, 1), true)
-        .addAction(0, "괜찮아요", action(context, AlertActionReceiver.ACTION_OK, 10))
-        .build()
-    )
-  }
-
   fun showCountdown(context: Context, endsAt: Long, settings: Settings, test: Boolean) {
     notify(
       context, ID_ALERT,

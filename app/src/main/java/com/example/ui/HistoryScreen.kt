@@ -187,8 +187,6 @@ private fun LogRow(log: FallLog, expanded: Boolean, onToggle: () -> Unit, onDele
         if (log.aiResult.isNotBlank()) {
           Detail("판단", buildString {
             append(log.aiResult)
-            if (log.confidence > 0) append(" (${(log.confidence * 100).toInt()}%)")
-            if (log.analyzer.isNotBlank()) append(" · ${log.analyzer}")
           })
         }
         if (log.reason.isNotBlank()) Detail("근거", log.reason)

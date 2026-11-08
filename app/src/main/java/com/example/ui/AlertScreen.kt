@@ -78,10 +78,6 @@ fun AlertScreen(
   modifier: Modifier = Modifier,
 ) {
   when (state) {
-    is AlertState.Checking -> {
-      BackHandler { }
-      AlarmPage(modifier) { CheckingContent(state, onOkay, onHelp) }
-    }
     is AlertState.Countdown -> {
       BackHandler { }
       AlarmPage(modifier) { CountdownContent(state, settings, listening, onOkay, onHelp) }
@@ -137,40 +133,6 @@ private fun AlarmButtons(onOkay: () -> Unit, onHelp: () -> Unit, modifier: Modif
 @Composable
 private fun AlarmBox(content: @Composable () -> Unit) {
   Box(Modifier.fillMaxWidth().border(1.dp, AlarmLine, ButtonShape).padding(14.dp)) { content() }
-}
-
-@Composable
-private fun CheckingContent(state: AlertState.Checking, onOkay: () -> Unit, onHelp: () -> Unit) {
-  BoxWithConstraints(Modifier.fillMaxSize()) {
-    val wide = maxWidth > maxHeight
-    val minHeight = maxHeight
-    val info: @Composable () -> Unit = {
-      if (state.test) TestLabel()
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        CircularProgressIndicator(color = OnAlarm, trackColor = AlarmLine, strokeWidth = 3.dp, modifier = Modifier.size(24.dp))
-        Spacer(Modifier.width(12.dp))
-        Text("확인하는 중", style = MaterialTheme.typography.titleMedium, color = OnAlarmSoft)
-      }
-      Text("큰 충격이 감지됐어요", style = MaterialTheme.typography.headlineMedium, color = OnAlarm)
-      Text("넘어진 건지 확인하고 있어요. 괜찮으시면 바로 '괜찮아요'를 눌러 주세요.", style = MaterialTheme.typography.bodyLarge, color = OnAlarmSoft)
-      AlarmBox { EventFacts(state.event) }
-    }
-    if (wide) {
-      Row(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-        Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) { info() }
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) { AlarmButtons(onOkay, onHelp) }
-      }
-    } else {
-      Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = minHeight).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-      ) {
-        info()
-        Spacer(Modifier.weight(1f))
-        AlarmButtons(onOkay, onHelp)
-      }
-    }
-  }
 }
 
 @Composable
@@ -274,15 +236,13 @@ private fun CountdownContent(
 private fun AnalysisBox(state: AlertState.Countdown) {
   val a = state.analysis
   AlarmBox {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      Row {
-        Text(
-          if (a.verdict == Verdict.EMERGENCY) "도움이 필요할 수 있어요" else "넘어졌을 수 있어요",
-          style = MaterialTheme.typography.titleSmall, color = OnAlarm, modifier = Modifier.weight(1f),
-        )
-        Text("${a.source} · ${(a.confidence * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = OnAlarmSoft)
-      }
-      Text(a.reason, style = MaterialTheme.typography.bodyMedium, color = OnAlarmSoft)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      Text(
+        if (a.verdict == Verdict.EMERGENCY) "큰 충격 뒤 움직임이 없어요" else "넘어졌을 수 있어요",
+        style = MaterialTheme.typography.titleSmall, color = OnAlarm,
+      )
+      // 판단 근거는 잰 숫자 그대로 보여 줍니다.
+      if (state.event != null) EventFacts(state.event) else Text(a.reason, style = MaterialTheme.typography.bodyMedium, color = OnAlarmSoft)
     }
   }
 }
@@ -314,8 +274,9 @@ private fun SentContent(
           when {
             report.test -> "테스트라서 문자는 보내지 않았어요. 실제로는 아래 내용이 보호자에게 가요."
             sentAny -> "전화로 직접 상황을 알리면 더 빨리 도움을 받을 수 있어요."
-            !report.smsAvailable -> "문자 권한이 없거나 이 기기에서 문자를 보낼 수 없어요. 아래 버튼으로 직접 보내거나 전화해 주세요."
-            else -> "아래 버튼으로 직접 보내거나 전화해 주세요."
+            !report.smsAvailable ->
+              "문자 권한이 꺼져 있어 자동으로 보내지 못했어요. 아래 '문자 앱으로 보내기'를 누른 뒤 문자 앱에서 '보내기'를 눌러 주세요. 다음부터 자동으로 보내려면 홈의 '준비 상태'에서 문자 권한을 켜 주세요."
+            else -> "통신사 사정으로 보내지 못했어요. 아래 '문자 앱으로 보내기'를 누르거나 전화해 주세요."
           },
           style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
         )

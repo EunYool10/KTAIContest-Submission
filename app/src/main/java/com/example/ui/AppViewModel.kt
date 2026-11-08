@@ -54,12 +54,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
   val place = engine.location.place
   val logs: StateFlow<List<FallLog>> = engine.logs.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-  val geminiConfigured: Boolean get() = engine.gemini.isConfigured
-  val modelName: String get() = engine.modelName
-  val hasBuiltInKey: Boolean get() = engine.builtInKey.isNotBlank()
-
-  suspend fun checkGeminiKey(key: String): Pair<Boolean, String> = engine.gemini.check(key)
-  fun saveGeminiKey(key: String) = store.update { it.copy(geminiKey = key.trim()) }
   val hasAccelerometer: Boolean get() = engine.hasAccelerometer
 
   fun completeSetup(name: String, guardianName: String, guardianPhone: String, extra: String, target: com.example.data.CallTarget) {

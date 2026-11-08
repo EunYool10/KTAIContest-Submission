@@ -46,7 +46,7 @@ data class FallLog(
   @ColumnInfo(defaultValue = "") val address: String = "",
   @ColumnInfo(defaultValue = "1") val hasLocation: Boolean = true,
   @ColumnInfo(defaultValue = "") val kind: String = "",
-  /** 판단한 주체 ("Gemini", "기기 안 규칙", "테스트") */
+  /** 판단한 주체 (이전 버전 기록에는 "Gemini" 가 남아 있을 수 있음) */
   @ColumnInfo(defaultValue = "") val analyzer: String = "",
 )
 
