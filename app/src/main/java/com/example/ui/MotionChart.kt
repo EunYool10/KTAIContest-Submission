@@ -1,6 +1,8 @@
 package com.example.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -10,8 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -50,6 +50,17 @@ fun MotionChart(
   val labelStyle = TextStyle(fontSize = 11.sp, color = labelColor)
   val peak = history.maxOrNull() ?: 0f
 
+  // 데이터가 없으면 기준선 없이 안내 문구만 보여 줍니다 (선과 글자가 겹치지 않게).
+  if (history.size < 2) {
+    Box(
+      modifier.fillMaxWidth().height(96.dp).border(1.dp, grid, RoundedCornerShape(8.dp)),
+      contentAlignment = Alignment.Center,
+    ) {
+      Text(emptyText, style = MaterialTheme.typography.bodyMedium, color = labelColor)
+    }
+    return
+  }
+
   Box(
     modifier
       .fillMaxWidth()
@@ -82,23 +93,13 @@ fun MotionChart(
           val x = startX + i * step
           if (i == 0) path.moveTo(x, y(v)) else path.lineTo(x, y(v))
         }
-        val fill = Path().apply {
-          addPath(path)
-          lineTo(w, h)
-          lineTo(startX, h)
-          close()
-        }
-        drawPath(fill, Brush.verticalGradient(listOf(line.copy(alpha = 0.22f), Color.Transparent)))
-        drawPath(path, line, style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(path, line, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
         history.forEachIndexed { i, v ->
           if (v >= warning) {
             drawCircle(if (v >= emergency) dangerColor else warnColor, 4.dp.toPx(), Offset(startX + i * step, y(v)))
           }
         }
       }
-    }
-    if (history.size < 2) {
-      Text(emptyText, style = MaterialTheme.typography.bodyMedium, color = labelColor, modifier = Modifier.align(Alignment.Center))
     }
   }
 }

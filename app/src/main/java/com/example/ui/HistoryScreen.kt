@@ -3,12 +3,8 @@ package com.example.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,21 +15,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,18 +42,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.data.FallLog
 import com.example.data.LogKind
-import com.example.ui.theme.AppTheme
 import java.util.Calendar
 import java.util.Locale
 
 private enum class LogFilter(val title: String) { ALL("전체"), EMERGENCY("큰 충격"), WARNING("충격 주의"), SOS("도움 요청"), TEST("테스트") }
+
+private fun isHelp(log: FallLog) =
+  LogKind.of(log) == LogKind.SOS || log.userResponse.contains("자동 문자") || log.userResponse.startsWith("도움 요청")
 
 private fun LogFilter.accepts(log: FallLog): Boolean = when (this) {
   LogFilter.ALL -> true
   LogFilter.TEST -> log.isSimulated
   LogFilter.EMERGENCY -> !log.isSimulated && LogKind.of(log) == LogKind.EMERGENCY
   LogFilter.WARNING -> !log.isSimulated && LogKind.of(log) == LogKind.WARNING
-  LogFilter.SOS -> !log.isSimulated && (LogKind.of(log) == LogKind.SOS || log.userResponse.contains("도움") || log.userResponse.contains("자동 문자"))
+  LogFilter.SOS -> !log.isSimulated && isHelp(log)
 }
 
 private fun dayKey(ms: Long): Int = Calendar.getInstance().run { timeInMillis = ms; get(Calendar.YEAR) * 1000 + get(Calendar.DAY_OF_YEAR) }
@@ -69,61 +65,78 @@ fun HistoryScreen(logs: List<FallLog>, onDelete: (Int) -> Unit, onClear: () -> U
   var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
   var expandedId by rememberSaveable { mutableIntStateOf(-1) }
   var confirmClear by rememberSaveable { mutableStateOf(false) }
+  val scheme = MaterialTheme.colorScheme
   val shown = logs.filter { filter.accepts(it) }
   val monthAgo = System.currentTimeMillis() - 30L * 86_400_000L
   val recentReal = logs.filter { !it.isSimulated && it.timestamp >= monthAgo }
 
-  LazyColumn(
-    modifier.fillMaxSize().testTag("history"),
-    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-    verticalArrangement = Arrangement.spacedBy(10.dp),
-  ) {
-    item {
-      Panel {
-        Text("최근 30일", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row {
-          LabelValue("큰 충격", "${recentReal.count { LogKind.of(it) == LogKind.EMERGENCY }}회", Modifier.weight(1f))
-          LabelValue("충격 주의", "${recentReal.count { LogKind.of(it) == LogKind.WARNING }}회", Modifier.weight(1f))
-          LabelValue("도움 요청", "${recentReal.count { LogFilter.SOS.accepts(it) }}회", Modifier.weight(1f))
-        }
+  Column(modifier.fillMaxSize().testTag("history")) {
+    ScrollableTabRow(
+      selectedTabIndex = filter.ordinal,
+      containerColor = scheme.surface,
+      contentColor = scheme.onSurface,
+      edgePadding = 8.dp,
+      indicator = { positions ->
+        TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(positions[filter.ordinal]), height = 2.dp, color = scheme.primary)
+      },
+      divider = { HorizontalDivider(color = scheme.outlineVariant) },
+    ) {
+      LogFilter.entries.forEach { f ->
+        Tab(
+          selected = filter == f, onClick = { filter = f },
+          selectedContentColor = scheme.primary, unselectedContentColor = scheme.onSurfaceVariant,
+          text = { Text(f.title, style = MaterialTheme.typography.labelLarge) },
+        )
       }
     }
-    item {
-      Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        LogFilter.entries.forEach { f ->
-          FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(f.title) })
-        }
-      }
-    }
-    if (shown.isEmpty()) {
+
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
       item {
-        Column(Modifier.fillMaxWidth().padding(vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-          Icon(Icons.Outlined.History, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.outline)
-          Spacer(Modifier.height(12.dp))
-          Text(if (logs.isEmpty()) "아직 기록이 없어요" else "이 종류의 기록은 없어요", style = MaterialTheme.typography.titleMedium)
-          Text(
-            "충격이 감지되거나 도움을 요청하면 여기에 남아요.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+        Section("최근 30일") {
+          StatRow(
+            listOf(
+              "큰 충격" to "${recentReal.count { LogKind.of(it) == LogKind.EMERGENCY }}회",
+              "충격 주의" to "${recentReal.count { LogKind.of(it) == LogKind.WARNING }}회",
+              "도움 요청" to "${recentReal.count { isHelp(it) }}회",
+            ),
+            Modifier.padding(horizontal = 6.dp),
           )
         }
       }
-    } else {
-      var lastDay = -1
-      shown.forEach { log ->
-        val day = dayKey(log.timestamp)
-        if (day != lastDay) {
-          lastDay = day
-          item(key = "d$day") {
-            Text(dateText(log.timestamp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+      if (shown.isEmpty()) {
+        item {
+          Column(Modifier.fillMaxWidth().padding(vertical = 56.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Outlined.History, null, Modifier.size(40.dp), tint = scheme.outline)
+            Spacer(Modifier.height(10.dp))
+            Text(if (logs.isEmpty()) "아직 기록이 없어요" else "이 종류의 기록은 없어요", style = MaterialTheme.typography.titleMedium)
+            Caption("충격이 감지되거나 도움을 요청하면 여기에 남아요.", Modifier.padding(top = 4.dp))
           }
         }
-        item(key = log.id) {
-          LogCard(log, expanded = expandedId == log.id, onToggle = { expandedId = if (expandedId == log.id) -1 else log.id }, onDelete = { onDelete(log.id) })
+      } else {
+        var lastDay = -1
+        shown.forEach { log ->
+          val day = dayKey(log.timestamp)
+          if (day != lastDay) {
+            lastDay = day
+            item(key = "d$day") {
+              Text(
+                dateText(log.timestamp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().background(scheme.background).padding(start = SidePadding, top = 18.dp, bottom = 6.dp),
+              )
+            }
+          }
+          item(key = log.id) {
+            LogRow(
+              log, expanded = expandedId == log.id,
+              onToggle = { expandedId = if (expandedId == log.id) -1 else log.id },
+              onDelete = { onDelete(log.id) },
+            )
+          }
         }
-      }
-      item {
-        TextButton(onClick = { confirmClear = true }, modifier = Modifier.fillMaxWidth()) {
-          Text("기록 모두 지우기", color = MaterialTheme.colorScheme.error)
+        item {
+          Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.Center) {
+            AppTextButton("기록 모두 지우기", { confirmClear = true }, color = scheme.error)
+          }
         }
       }
     }
@@ -134,81 +147,78 @@ fun HistoryScreen(logs: List<FallLog>, onDelete: (Int) -> Unit, onClear: () -> U
       onDismissRequest = { confirmClear = false },
       title = { Text("기록을 모두 지울까요?") },
       text = { Text("지운 기록은 되돌릴 수 없어요.") },
-      confirmButton = { TextButton(onClick = { confirmClear = false; onClear() }) { Text("모두 지우기", color = MaterialTheme.colorScheme.error) } },
-      dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("취소") } },
+      confirmButton = { AppTextButton("모두 지우기", { confirmClear = false; onClear() }, color = scheme.error) },
+      dismissButton = { AppTextButton("취소", { confirmClear = false }, color = scheme.onSurfaceVariant) },
     )
   }
 }
 
 @Composable
-private fun LogCard(log: FallLog, expanded: Boolean, onToggle: () -> Unit, onDelete: () -> Unit) {
+private fun LogRow(log: FallLog, expanded: Boolean, onToggle: () -> Unit, onDelete: () -> Unit) {
   val scheme = MaterialTheme.colorScheme
   val kind = LogKind.of(log)
-  val accent = when {
-    log.isSimulated -> scheme.outline
-    kind == LogKind.WARNING -> AppTheme.extra.warning
-    kind == LogKind.SOS || log.userResponse.contains("자동 문자") || log.userResponse.contains("도움") -> scheme.error
-    else -> scheme.primary
-  }
   val uri = LocalUriHandler.current
-  Surface(shape = MaterialTheme.shapes.large, color = scheme.surface, modifier = Modifier.fillMaxWidth()) {
-    Row(Modifier.height(IntrinsicSize.Min)) {
-      Box(
-        Modifier.padding(start = 12.dp, top = 16.dp, bottom = 16.dp).width(4.dp).fillMaxHeight()
-          .background(accent, RoundedCornerShape(2.dp)),
-      )
-      Column(Modifier.clickable(onClick = onToggle).padding(14.dp).weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+  Column(Modifier.fillMaxWidth().background(scheme.surface)) {
+    Row(
+      Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = SidePadding, vertical = 12.dp),
+      verticalAlignment = Alignment.Top,
+    ) {
+      Text(timeText(log.timestamp), style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant, modifier = Modifier.width(76.dp).padding(top = 2.dp))
+      Column(Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-          Text(kind.title, style = MaterialTheme.typography.titleSmall)
+          Dot(logColor(log))
+          Spacer(Modifier.width(8.dp))
+          Text(kind.title, style = MaterialTheme.typography.bodyLarge)
           if (log.isSimulated) {
             Spacer(Modifier.width(6.dp))
             Tag("테스트", scheme.onSurfaceVariant, scheme.surfaceVariant)
           }
-          Spacer(Modifier.weight(1f))
-          Text(timeText(log.timestamp), style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
         }
-        Text(
+        Caption(
           listOfNotNull(
             log.userResponse.takeIf { it.isNotBlank() && it != kind.title },
             log.maxAccel.takeIf { it > 0f }?.let { "최대 ${gForce(it)}" },
-            log.aiResult.takeIf { it.isNotBlank() }?.let { r -> if (log.confidence > 0) "$r ${(log.confidence * 100).toInt()}%" else r },
           ).joinToString(" · "),
-          style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant,
         )
-        AnimatedVisibility(expanded) {
-          Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-            HorizontalDivider(color = scheme.outlineVariant)
-            if (log.reason.isNotBlank()) {
-              Text("${log.analyzer.ifBlank { "판단" }} 근거", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-              Text(log.reason, style = MaterialTheme.typography.bodyMedium)
-            }
-            Text("위치", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-            Text(
-              when {
-                !log.hasLocation -> "위치를 확인하지 못했어요"
-                log.address.isNotBlank() -> log.address
-                else -> String.format(Locale.US, "%.5f, %.5f", log.latitude, log.longitude)
-              },
-              style = MaterialTheme.typography.bodyMedium,
+      }
+    }
+    AnimatedVisibility(expanded) {
+      Column(Modifier.fillMaxWidth().padding(start = SidePadding + 76.dp, end = SidePadding, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (log.aiResult.isNotBlank()) {
+          Detail("판단", buildString {
+            append(log.aiResult)
+            if (log.confidence > 0) append(" (${(log.confidence * 100).toInt()}%)")
+            if (log.analyzer.isNotBlank()) append(" · ${log.analyzer}")
+          })
+        }
+        if (log.reason.isNotBlank()) Detail("근거", log.reason)
+        Detail(
+          "위치",
+          when {
+            !log.hasLocation -> "확인하지 못했어요"
+            log.address.isNotBlank() -> log.address
+            else -> String.format(Locale.US, "%.5f, %.5f", log.latitude, log.longitude)
+          },
+        )
+        Row(Modifier.padding(start = 0.dp)) {
+          if (log.hasLocation) {
+            AppTextButton(
+              "지도", { uri.openUri(String.format(Locale.US, "https://maps.google.com/?q=%.6f,%.6f", log.latitude, log.longitude)) },
+              icon = Icons.Outlined.Map,
             )
-            Row {
-              if (log.hasLocation) {
-                TextButton(onClick = { uri.openUri(String.format(Locale.US, "https://maps.google.com/?q=%.6f,%.6f", log.latitude, log.longitude)) }) {
-                  Icon(Icons.Outlined.Map, null, Modifier.size(18.dp))
-                  Spacer(Modifier.width(6.dp))
-                  Text("지도")
-                }
-              }
-              Spacer(Modifier.weight(1f))
-              TextButton(onClick = onDelete) {
-                Icon(Icons.Outlined.DeleteOutline, null, Modifier.size(18.dp), tint = scheme.error)
-                Spacer(Modifier.width(6.dp))
-                Text("삭제", color = scheme.error)
-              }
-            }
           }
+          AppTextButton("삭제", onDelete, color = scheme.error, icon = Icons.Outlined.DeleteOutline)
         }
       }
     }
+    HorizontalDivider(Modifier.padding(start = SidePadding), color = scheme.outlineVariant)
+  }
+}
+
+@Composable
+private fun Detail(label: String, value: String) {
+  Column {
+    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Start)
   }
 }

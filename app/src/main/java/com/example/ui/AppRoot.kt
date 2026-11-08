@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -15,10 +16,12 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.Lifecycle
@@ -114,20 +119,34 @@ private fun MainTabs(vm: AppViewModel, settings: Settings) {
   Scaffold(
     containerColor = MaterialTheme.colorScheme.background,
     topBar = {
-      TopAppBar(
-        title = { Text(if (tab == 0) "AI 충격 감지" else tabs[tab].first, style = MaterialTheme.typography.titleLarge) },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-      )
+      Column {
+        TopAppBar(
+          title = { Text(if (tab == 0) "AI 충격 감지" else tabs[tab].first, style = MaterialTheme.typography.titleLarge) },
+          colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+      }
     },
     bottomBar = {
-      NavigationBar(containerColor = MaterialTheme.colorScheme.surface, modifier = Modifier.testTag("bottom_navigation")) {
-        tabs.forEachIndexed { i, (label, filled, outlined) ->
-          NavigationBarItem(
-            selected = tab == i,
-            onClick = { tab = i },
-            icon = { Icon(if (tab == i) filled else outlined, contentDescription = null) },
-            label = { Text(label, style = MaterialTheme.typography.labelLarge) },
-          )
+      Column {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // 선택 표시는 색만 바꿉니다 (알약 모양 강조 없음).
+        NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp, modifier = Modifier.testTag("bottom_navigation")) {
+          tabs.forEachIndexed { i, (label, filled, outlined) ->
+            NavigationBarItem(
+              selected = tab == i,
+              onClick = { tab = i },
+              icon = { Icon(if (tab == i) filled else outlined, contentDescription = null) },
+              label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+              colors = NavigationBarItemDefaults.colors(
+                indicatorColor = Color.Transparent,
+                selectedIconColor = MaterialTheme.colorScheme.primary,
+                selectedTextColor = MaterialTheme.colorScheme.primary,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          }
         }
       }
     },
